@@ -23,7 +23,6 @@ CORS(
     supports_credentials=True
 )
 
-
 # Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -224,7 +223,7 @@ def get_attendance():
                        .filter(db.func.date(Attendance.timestamp) == day)
                        .all())
 
-    on_time = []
+      on_time = []
     late = []
     outside = []
     absent_list = []
@@ -248,7 +247,6 @@ def get_attendance():
             absent_list.append(record)
         else:
             on_time.append(record)
-
     # Marcar como ausentes a quienes no registraron asistencia ese día
     all_students = Student.query.filter_by(user_type='student').all()
     marked_ids = [a.student_id for a in attendance_list]
