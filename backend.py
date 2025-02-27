@@ -231,7 +231,6 @@ def get_attendance():
     for att in attendance_list:
         st = Student.query.get(att.student_id)
         record = {
-
             'attendance_id': att.id,
             'student_code': st.student_code,
             'first_name': st.first_name,
@@ -248,6 +247,7 @@ def get_attendance():
             absent_list.append(record)
         else:
             on_time.append(record)
+
     # Marcar como ausentes a quienes no registraron asistencia ese día
     all_students = Student.query.filter_by(user_type='student').all()
     marked_ids = [a.student_id for a in attendance_list]
