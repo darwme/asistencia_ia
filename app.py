@@ -2,11 +2,10 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+import subprocess  # Importamos subprocess para ejecutar otro script
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
-
-# Configuración de CORS
 CORS(app, resources={r"/*": {"origins": ["https://asistencia-vlqb.onrender.com"], "supports_credentials": True}})
 
 db = SQLAlchemy(app)
@@ -36,4 +35,6 @@ def index():
     return "Hello, World!"
 
 if __name__ == '__main__':
+    # Ejecutamos backend.py al iniciar la aplicación
+    subprocess.Popen(["python", "backend.py"])
     app.run(debug=os.getenv('DEBUG', 'False').lower() in ('true', '1', 't'))
