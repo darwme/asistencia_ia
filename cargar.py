@@ -1,10 +1,10 @@
 import psycopg2
 import csv
 
-DB_HOST = "dpg-cv094dfnoe9s73d1gljg-a.oregon-postgres.render.com"
-DB_NAME = "asistenciafisi2024"
+DB_HOST = "dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com"
+DB_NAME = "asistencia_ia"
 DB_USER = "asistencia_user"
-DB_PASSWORD = "dp0Kst6GUCJczdy1UlLeEucdC7BceLp3"
+DB_PASSWORD = "n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ"
 
 CSV_FILE_PATH = "estudiantes.csv"
 

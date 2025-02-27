@@ -14,14 +14,10 @@ app = Flask(__name__)
 # Variables de entorno
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')  # Cambiar en producción
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:dp0Kst6GUCJczdy1UlLeEucdC7BceLp3@dpg-cv094dfnoe9s73d1gljg-a.oregon-postgres.render.com/asistenciafisi2024')
-CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
+#CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
 
 # Configurar CORS
-CORS(
-    app,
-    resources={r"/*": {"origins": CORS_ORIGIN}},
-    supports_credentials=True
-)
+CORS(app, origins='*')
 
 # Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
