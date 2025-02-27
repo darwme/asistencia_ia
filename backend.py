@@ -223,7 +223,7 @@ def get_attendance():
                        .filter(db.func.date(Attendance.timestamp) == day)
                        .all())
 
-      on_time = []
+    on_time = []
     late = []
     outside = []
     absent_list = []
@@ -231,6 +231,7 @@ def get_attendance():
     for att in attendance_list:
         st = Student.query.get(att.student_id)
         record = {
+
             'attendance_id': att.id,
             'student_code': st.student_code,
             'first_name': st.first_name,
