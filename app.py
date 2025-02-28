@@ -20,8 +20,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia')
 CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
 
-# Configurar CORS para enviar credenciales y limitar orígenes
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": CORS_ORIGIN}})
+# Configurar CORS para permitir supports_credentials solo para rutas excepto /login y /logout
+CORS(app, resources={r"/(?!login$|logout$).*": {"supports_credentials": True}})
 
 # Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
