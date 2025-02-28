@@ -1,3 +1,4 @@
+# backend.py
 import os
 from flask import Flask, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
@@ -10,7 +11,6 @@ app = Flask(__name__)
 # Configuración de la sesión (para endpoints no modificados)
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')
 app.config['SESSION_COOKIE_SECURE'] = False  # Cambiar a True en producción si usas HTTPS
-# Ya que ahora no confiamos en la sesión para endpoints de admin, usamos las credenciales en el request.
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -22,7 +22,7 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:5173"
 ])
 
-# Variables de entorno y configuración de la base de datos
+# Configuración de la base de datos
 DATABASE_URL = os.environ.get(
     'DATABASE_URL',
     'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia'
@@ -103,7 +103,7 @@ def login():
     if student.password != password:
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
-    # Aunque se guarda en sesión para endpoints no modificados, se retorna el student_id
+    # Se guarda en sesión para endpoints que todavía dependan de ella
     session['student_id'] = student.id
     session['user_type'] = student.user_type
 
@@ -168,22 +168,23 @@ def register_attendance():
     else:
         return jsonify({'message': 'Asistencia registrada (on_time)'}), 200
 
-@app.route('/admin/attendance', methods=['GET'])
+@app.route('/admin/attendance', methods=['POST'])
 def get_attendance():
     """
     Retorna:
-      - Registro general (todos los registros) si no se envía ?date=
-      - Reporte de un día específico si se envía ?date=YYYY-MM-DD
-    Para acceder a este endpoint, el request debe incluir en los headers:
-      - student_id: (id del profesor)
-      - user_type: debe ser "teacher"
+      - Registro general (todos los registros) si no se envía 'date'
+      - Reporte de un día específico si se envía 'date' (en formato YYYY-MM-DD)
+    Se espera que el body incluya:
+      { teacher_id, user_type, [date] }
+    El campo user_type debe ser "teacher".
     """
-    teacher_id = request.headers.get("student_id")
-    user_type = request.headers.get("user_type")
+    data = request.get_json()
+    teacher_id = data.get("teacher_id")
+    user_type = data.get("user_type")
     if not teacher_id or user_type != "teacher":
         return jsonify({'error': 'No autorizado'}), 403
 
-    date_str = request.args.get('date')
+    date_str = data.get('date')
     if date_str:
         try:
             day = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -247,18 +248,16 @@ def get_attendance():
 @app.route('/admin/update_status', methods=['POST'])
 def update_attendance_status():
     """
-    Permite actualizar el status de un registro de asistencia o crearlo manualmente.
-    Se espera en el body: { attendance_id, new_status, student_code (opcional) }
-    Para acceder a este endpoint, el request debe incluir en los headers:
-      - student_id: (id del profesor)
-      - user_type: debe ser "teacher"
+    Permite actualizar el estado de un registro de asistencia o crearlo manualmente.
+    Se espera en el body: { teacher_id, user_type, attendance_id, new_status, [student_code] }
+    El campo user_type debe ser "teacher".
     """
-    teacher_id = request.headers.get("student_id")
-    user_type = request.headers.get("user_type")
+    data = request.get_json()
+    teacher_id = data.get("teacher_id")
+    user_type = data.get("user_type")
     if not teacher_id or user_type != "teacher":
         return jsonify({'error': 'No autorizado'}), 403
 
-    data = request.get_json()
     attendance_id = data.get('attendance_id')
     new_status = data.get('new_status')
     student_code = data.get('student_code')
