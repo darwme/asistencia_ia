@@ -19,6 +19,7 @@ CORS(app, supports_credentials=True, origins=[
     "https://asistencia-vlqb.onrender.com",
     "https://asistencia-ia.onrender.com",
     "https://asistencia-ia-1.onrender.com",
+    "https://stirring-banoffee-ac5184.netlify.app",
     "http://localhost:5173"
 ])
 
