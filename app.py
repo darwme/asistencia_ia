@@ -57,7 +57,7 @@ class Attendance(db.Model):
     status = db.Column(db.String(50), default='on_time')
 
 # -------------------- CONFIGURACIÓN --------------------
-CAMPUS_COORDINATES = (-12.0583, -77.0833)  # Ejemplo: coordenadas de UNMSM
+CAMPUS_COORDINATES = (-12.0432, -77.0282)  # Ejemplo: coordenadas de UNMSM
 RADIUS_KM = 0.5
 
 # Rangos de hora para determinar el estado de asistencia
