@@ -18,11 +18,13 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Variables de entorno
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia')
-CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
+#CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
 
-# Configurar CORS para permitir supports_credentials solo para rutas excepto /login y /logout
-CORS(app, resources={r"/(?!login$|logout$).*": {"supports_credentials": True}})
-
+CORS(app, supports_credentials=True, origins=[
+    "https://deluxe-stardust-c68b09.netlify.app",
+    "https://asistencia-vlqb.onrender.com",
+    "http://localhost:5173"
+])
 # Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
