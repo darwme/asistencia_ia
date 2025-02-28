@@ -21,13 +21,11 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:5173"
 ])
 
-# Variables de entorno
+# Variables de entorno y configuración de la base de datos
 DATABASE_URL = os.environ.get(
     'DATABASE_URL',
     'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia'
 )
-
-# Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -53,14 +51,14 @@ class Attendance(db.Model):
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    # 'on_time', 'late', 'absent', 'outside_campus'
+    # Estados posibles: 'on_time', 'late', 'absent', 'outside_campus'
     status = db.Column(db.String(50), default='on_time')
 
 # -------------------- CONFIGURACIÓN --------------------
-CAMPUS_COORDINATES = (-12.0432, -77.0282)  # Ejemplo: coordenadas de UNMSM
-RADIUS_KM = 1.5
+CAMPUS_COORDINATES = (-12.0583, -77.0833)  # Ejemplo: coordenadas de UNMSM
+RADIUS_KM = 0.5
 
-# Rangos de hora
+# Rangos de hora para determinar el estado de asistencia
 ATTENDANCE_START = time(18, 0, 0)   # 18:00
 ATTENDANCE_END = time(18, 30, 0)    # 18:30
 LATE_END = time(19, 30, 0)          # 19:30
@@ -70,7 +68,7 @@ def is_within_radius(coord1, coord2, radius_km):
 
 def determine_status(arrival_time: time):
     """
-    Retorna on_time, late o absent según la hora de llegada.
+    Retorna 'on_time', 'late' o 'absent' según la hora de llegada.
     - on_time: [18:00, 18:30)
     - late:    [18:30, 19:30)
     - absent:  fuera de ese rango
@@ -104,11 +102,11 @@ def login():
     if student.password != password:
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
-    # Guardamos datos en sesión (útil para endpoints de administración)
+    # Guardamos datos en sesión para usos posteriores (por ejemplo, administración)
     session['student_id'] = student.id
     session['user_type'] = student.user_type
 
-    # Ahora se retorna también el student_id para que el frontend lo utilice
+    # Retornamos el student_id para que el frontend lo utilice
     return jsonify({
         'message': 'Login exitoso',
         'user_type': student.user_type,
@@ -123,10 +121,10 @@ def logout():
 @app.route('/attendance', methods=['POST'])
 def register_attendance():
     """
-    Valida la ubicación y registra la asistencia.
-    Ahora se espera que el student_id se envíe en el request.
-    Si el estudiante está fuera del campus se marca como outside_campus.
-    Si está dentro, se determina si es on_time, late o absent según la hora (UTC).
+    Registra la asistencia. Se espera que el request body incluya:
+    { student_id, course, latitude, longitude }
+    Si la ubicación está fuera del campus se marca como 'outside_campus'.
+    Si está dentro, se determina el estado (on_time, late o absent) según la hora.
     """
     data = request.get_json()
     student_id = data.get('student_id')
@@ -137,7 +135,7 @@ def register_attendance():
     if not student_id or not course or lat is None or lng is None:
         return jsonify({'error': 'Datos insuficientes'}), 400
 
-    # Verificar ubicación
+    # Verificar la ubicación
     if not is_within_radius(CAMPUS_COORDINATES, (lat, lng), RADIUS_KM):
         outside_att = Attendance(
             student_id=student_id,
@@ -151,7 +149,7 @@ def register_attendance():
         return jsonify({'error': 'Estudiante fuera del campus'}), 400
 
     now_utc = datetime.utcnow()
-    arrival_time = now_utc.time()  # Hora actual en UTC
+    arrival_time = now_utc.time()
     final_status = determine_status(arrival_time)
 
     new_att = Attendance(
@@ -175,60 +173,22 @@ def register_attendance():
 def get_attendance():
     """
     Retorna:
-      - Registro General (todos los registros del ciclo) si no se envía ?date=
-      - O el reporte de un día específico (incluyendo los ausentes) si se envía ?date=YYYY-MM-DD
-    Requiere que el usuario esté autenticado como teacher mediante sesión.
+      - Registro general (todos los registros) si no se envía ?date=
+      - Reporte de un día específico si se envía ?date=YYYY-MM-DD
+    Requiere autenticación como 'teacher' mediante sesión.
     """
     if 'student_id' not in session or session.get('user_type') != 'teacher':
         return jsonify({'error': 'No autorizado'}), 403
 
     date_str = request.args.get('date')
-
-    # Registro General: si no se envía ?date=
-    if not date_str:
+    if date_str:
+        try:
+            day = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Formato de fecha inválido (YYYY-MM-DD)'}), 400
+        attendance_list = Attendance.query.filter(db.func.date(Attendance.timestamp) == day).all()
+    else:
         attendance_list = Attendance.query.all()
-
-        on_time = []
-        late = []
-        outside = []
-        absent_list = []
-
-        for att in attendance_list:
-            st = Student.query.get(att.student_id)
-            record = {
-                'attendance_id': att.id,
-                'student_code': st.student_code,
-                'first_name': st.first_name,
-                'paternal_surname': st.paternal_surname,
-                'maternal_surname': st.maternal_surname,
-                'timestamp': att.timestamp.isoformat(),
-                'status': att.status
-            }
-            if att.status == 'outside_campus':
-                outside.append(record)
-            elif att.status == 'late':
-                late.append(record)
-            elif att.status == 'absent':
-                absent_list.append(record)
-            else:
-                on_time.append(record)
-
-        report = {
-            'date': 'all',
-            'on_time': on_time,
-            'late': late,
-            'outside_campus': outside,
-            'absent': absent_list
-        }
-        return jsonify(report), 200
-
-    # Reporte Diario: se procesa ?date=YYYY-MM-DD
-    try:
-        day = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Formato de fecha inválido (YYYY-MM-DD)'}), 400
-
-    attendance_list = Attendance.query.filter(db.func.date(Attendance.timestamp) == day).all()
 
     on_time = []
     late = []
@@ -237,6 +197,9 @@ def get_attendance():
 
     for att in attendance_list:
         st = Student.query.get(att.student_id)
+        # Si por alguna razón no se encuentra el estudiante, se omite el registro
+        if not st:
+            continue
         record = {
             'attendance_id': att.id,
             'student_code': st.student_code,
@@ -255,23 +218,24 @@ def get_attendance():
         else:
             on_time.append(record)
 
-    # Marcar como ausentes a quienes no registraron asistencia ese día
-    all_students = Student.query.filter_by(user_type='student').all()
-    marked_ids = [a.student_id for a in attendance_list]
-    for st in all_students:
-        if st.id not in marked_ids:
-            absent_list.append({
-                'attendance_id': None,
-                'student_code': st.student_code,
-                'first_name': st.first_name,
-                'paternal_surname': st.paternal_surname,
-                'maternal_surname': st.maternal_surname,
-                'timestamp': None,
-                'status': 'absent'
-            })
+    # Si se está consultando por una fecha, se marca como ausentes a los estudiantes sin registro
+    if date_str:
+        all_students = Student.query.filter_by(user_type='student').all()
+        marked_ids = [a.student_id for a in attendance_list]
+        for st in all_students:
+            if st.id not in marked_ids:
+                absent_list.append({
+                    'attendance_id': None,
+                    'student_code': st.student_code,
+                    'first_name': st.first_name,
+                    'paternal_surname': st.paternal_surname,
+                    'maternal_surname': st.maternal_surname,
+                    'timestamp': None,
+                    'status': 'absent'
+                })
 
     report = {
-        'date': date_str,
+        'date': date_str if date_str else 'all',
         'on_time': on_time,
         'late': late,
         'outside_campus': outside,
@@ -282,9 +246,9 @@ def get_attendance():
 @app.route('/admin/update_status', methods=['POST'])
 def update_attendance_status():
     """
-    Permite al profesor actualizar el status de un registro de asistencia (o crear uno).
-    Request body: { attendance_id, new_status, student_code (opcional) }
-    Requiere autenticación como teacher mediante sesión.
+    Permite actualizar el status de un registro de asistencia o crearlo manualmente.
+    Se espera en el body: { attendance_id, new_status, student_code (opcional) }
+    Requiere autenticación como teacher.
     """
     if 'student_id' not in session or session.get('user_type') != 'teacher':
         return jsonify({'error': 'No autorizado'}), 403
