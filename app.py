@@ -7,9 +7,10 @@ from datetime import datetime, time
 
 app = Flask(__name__)
 
-# Configuración de la sesión
+# Configuración de la sesión (para endpoints no modificados)
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')
-app.config['SESSION_COOKIE_SECURE'] = False  # Cambiar a True en producción
+app.config['SESSION_COOKIE_SECURE'] = False  # Cambiar a True en producción si usas HTTPS
+# Ya que ahora no confiamos en la sesión para endpoints de admin, usamos las credenciales en el request.
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -102,11 +103,10 @@ def login():
     if student.password != password:
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
-    # Guardamos datos en sesión para usos posteriores (por ejemplo, administración)
+    # Aunque se guarda en sesión para endpoints no modificados, se retorna el student_id
     session['student_id'] = student.id
     session['user_type'] = student.user_type
 
-    # Retornamos el student_id para que el frontend lo utilice
     return jsonify({
         'message': 'Login exitoso',
         'user_type': student.user_type,
@@ -135,7 +135,6 @@ def register_attendance():
     if not student_id or not course or lat is None or lng is None:
         return jsonify({'error': 'Datos insuficientes'}), 400
 
-    # Verificar la ubicación
     if not is_within_radius(CAMPUS_COORDINATES, (lat, lng), RADIUS_KM):
         outside_att = Attendance(
             student_id=student_id,
@@ -175,9 +174,13 @@ def get_attendance():
     Retorna:
       - Registro general (todos los registros) si no se envía ?date=
       - Reporte de un día específico si se envía ?date=YYYY-MM-DD
-    Requiere autenticación como 'teacher' mediante sesión.
+    Para acceder a este endpoint, el request debe incluir en los headers:
+      - student_id: (id del profesor)
+      - user_type: debe ser "teacher"
     """
-    if 'student_id' not in session or session.get('user_type') != 'teacher':
+    teacher_id = request.headers.get("student_id")
+    user_type = request.headers.get("user_type")
+    if not teacher_id or user_type != "teacher":
         return jsonify({'error': 'No autorizado'}), 403
 
     date_str = request.args.get('date')
@@ -197,7 +200,6 @@ def get_attendance():
 
     for att in attendance_list:
         st = Student.query.get(att.student_id)
-        # Si por alguna razón no se encuentra el estudiante, se omite el registro
         if not st:
             continue
         record = {
@@ -218,7 +220,6 @@ def get_attendance():
         else:
             on_time.append(record)
 
-    # Si se está consultando por una fecha, se marca como ausentes a los estudiantes sin registro
     if date_str:
         all_students = Student.query.filter_by(user_type='student').all()
         marked_ids = [a.student_id for a in attendance_list]
@@ -248,9 +249,13 @@ def update_attendance_status():
     """
     Permite actualizar el status de un registro de asistencia o crearlo manualmente.
     Se espera en el body: { attendance_id, new_status, student_code (opcional) }
-    Requiere autenticación como teacher.
+    Para acceder a este endpoint, el request debe incluir en los headers:
+      - student_id: (id del profesor)
+      - user_type: debe ser "teacher"
     """
-    if 'student_id' not in session or session.get('user_type') != 'teacher':
+    teacher_id = request.headers.get("student_id")
+    user_type = request.headers.get("user_type")
+    if not teacher_id or user_type != "teacher":
         return jsonify({'error': 'No autorizado'}), 403
 
     data = request.get_json()
@@ -269,18 +274,15 @@ def update_attendance_status():
         att = Attendance.query.get(attendance_id)
         if not att:
             return jsonify({'error': 'Registro de asistencia no encontrado'}), 404
-
         att.status = new_status
         db.session.commit()
         return jsonify({'message': 'Status actualizado'}), 200
     else:
         if not student_code:
             return jsonify({'error': 'Se requiere student_code si no hay attendance_id'}), 400
-
         st = Student.query.filter_by(student_code=student_code).first()
         if not st:
             return jsonify({'error': 'Estudiante no encontrado'}), 404
-
         now_utc = datetime.utcnow()
         new_att = Attendance(
             student_id=st.id,
