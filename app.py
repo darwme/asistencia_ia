@@ -5,26 +5,29 @@ from flask_cors import CORS
 from geopy.distance import geodesic
 from datetime import datetime, time
 
-# Si deseas cargar variables de entorno desde un archivo .env, descomenta lo siguiente:
-# from dotenv import load_dotenv
-# load_dotenv()
-
 app = Flask(__name__)
 
 # Configuración de la sesión
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')
 app.config['SESSION_COOKIE_SECURE'] = False  # Cambiar a True en producción
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['CORS_HEADERS'] = 'Content-Type'
 
-# Variables de entorno
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia')
-#CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
-
+# Configurar CORS para permitir los orígenes específicos
+# Se incluyen ambos dominios del backend para cubrir discrepancias y el dominio del frontend.
 CORS(app, supports_credentials=True, origins=[
-    "https://deluxe-stardust-c68b09.netlify.app",
     "https://asistencia-vlqb.onrender.com",
+    "https://asistencia-ia.onrender.com",
+    "https://asistencia-ia-1.onrender.com",
     "http://localhost:5173"
 ])
+
+# Variables de entorno
+DATABASE_URL = os.environ.get(
+    'DATABASE_URL',
+    'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia'
+)
+
 # Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
