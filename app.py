@@ -14,7 +14,6 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 # Configurar CORS para permitir los orígenes específicos
-# Se incluyen ambos dominios del backend para cubrir discrepancias y el dominio del frontend.
 CORS(app, supports_credentials=True, origins=[
     "https://asistencia-vlqb.onrender.com",
     "https://asistencia-ia.onrender.com",
@@ -105,9 +104,16 @@ def login():
     if student.password != password:
         return jsonify({'error': 'Contraseña incorrecta'}), 401
 
+    # Guardamos datos en sesión (útil para endpoints de administración)
     session['student_id'] = student.id
     session['user_type'] = student.user_type
-    return jsonify({'message': 'Login exitoso', 'user_type': student.user_type}), 200
+
+    # Ahora se retorna también el student_id para que el frontend lo utilice
+    return jsonify({
+        'message': 'Login exitoso',
+        'user_type': student.user_type,
+        'student_id': student.id
+    }), 200
 
 @app.route('/logout', methods=['POST'])
 def logout():
@@ -117,21 +123,19 @@ def logout():
 @app.route('/attendance', methods=['POST'])
 def register_attendance():
     """
-    Valida la ubicación. Si está fuera del campus se marca como outside_campus.
+    Valida la ubicación y registra la asistencia.
+    Ahora se espera que el student_id se envíe en el request.
+    Si el estudiante está fuera del campus se marca como outside_campus.
     Si está dentro, se determina si es on_time, late o absent según la hora (UTC).
     """
-    if 'student_id' not in session:
-        return jsonify({'error': 'No has iniciado sesión'}), 401
-
     data = request.get_json()
+    student_id = data.get('student_id')
     course = data.get('course')
     lat = data.get('latitude')
     lng = data.get('longitude')
 
-    if not course or lat is None or lng is None:
+    if not student_id or not course or lat is None or lng is None:
         return jsonify({'error': 'Datos insuficientes'}), 400
-
-    student_id = session['student_id']
 
     # Verificar ubicación
     if not is_within_radius(CAMPUS_COORDINATES, (lat, lng), RADIUS_KM):
@@ -148,7 +152,6 @@ def register_attendance():
 
     now_utc = datetime.utcnow()
     arrival_time = now_utc.time()  # Hora actual en UTC
-
     final_status = determine_status(arrival_time)
 
     new_att = Attendance(
@@ -174,6 +177,7 @@ def get_attendance():
     Retorna:
       - Registro General (todos los registros del ciclo) si no se envía ?date=
       - O el reporte de un día específico (incluyendo los ausentes) si se envía ?date=YYYY-MM-DD
+    Requiere que el usuario esté autenticado como teacher mediante sesión.
     """
     if 'student_id' not in session or session.get('user_type') != 'teacher':
         return jsonify({'error': 'No autorizado'}), 403
@@ -224,9 +228,7 @@ def get_attendance():
     except ValueError:
         return jsonify({'error': 'Formato de fecha inválido (YYYY-MM-DD)'}), 400
 
-    attendance_list = (Attendance.query
-                       .filter(db.func.date(Attendance.timestamp) == day)
-                       .all())
+    attendance_list = Attendance.query.filter(db.func.date(Attendance.timestamp) == day).all()
 
     on_time = []
     late = []
@@ -282,6 +284,7 @@ def update_attendance_status():
     """
     Permite al profesor actualizar el status de un registro de asistencia (o crear uno).
     Request body: { attendance_id, new_status, student_code (opcional) }
+    Requiere autenticación como teacher mediante sesión.
     """
     if 'student_id' not in session or session.get('user_type') != 'teacher':
         return jsonify({'error': 'No autorizado'}), 403
