@@ -11,13 +11,17 @@ from datetime import datetime, time
 
 app = Flask(__name__)
 
+# Configuración de la sesión
+app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')
+app.config['SESSION_COOKIE_SECURE'] = False  # Cambiar a True en producción
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # Variables de entorno
-app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')  # Cambiar en producción
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia')
 CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
 
-# Configurar CORS
-CORS(app, origins='*')
+# Configurar CORS para enviar credenciales y limitar orígenes
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": CORS_ORIGIN}})
 
 # Configuración de PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
