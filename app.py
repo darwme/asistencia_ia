@@ -58,7 +58,7 @@ class Attendance(db.Model):
 
 # -------------------- CONFIGURACIÓN --------------------
 CAMPUS_COORDINATES = (-12.0432, -77.0282)  # Ejemplo: coordenadas de UNMSM
-RADIUS_KM = 0.5
+RADIUS_KM = 1.5
 
 # Rangos de hora para determinar el estado de asistencia
 ATTENDANCE_START = time(18, 0, 0)   # 18:00
