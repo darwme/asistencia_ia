@@ -1,20 +1,20 @@
 import os
-from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from geopy.distance import geodesic
 from datetime import datetime, time
 
-# Cargar variables de entorno desde un archivo .env
-load_dotenv()
+# Si deseas cargar variables de entorno desde un archivo .env, descomenta lo siguiente:
+# from dotenv import load_dotenv
+# load_dotenv()
 
 app = Flask(__name__)
 
 # Variables de entorno
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_super_segura')  # Cambiar en producción
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:dp0Kst6GUCJczdy1UlLeEucdC7BceLp3@dpg-cv094dfnoe9s73d1gljg-a.oregon-postgres.render.com/asistenciafisi2024')
-#CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://asistencia_user:n7GZFVZzgE5QyEnP7V9fDgLPwMfYN5qZ@dpg-cv0fcf8gph6c73casoh0-a.oregon-postgres.render.com/asistencia_ia')
+CORS_ORIGIN = os.environ.get('CORS_ORIGIN', 'https://asistencia-vlqb.onrender.com')
 
 # Configurar CORS
 CORS(app, origins='*')
@@ -49,7 +49,7 @@ class Attendance(db.Model):
     status = db.Column(db.String(50), default='on_time')
 
 # -------------------- CONFIGURACIÓN --------------------
-CAMPUS_COORDINATES = (-12.052977641846182, -77.08569823378284)  # Ejemplo: coordenadas de UNMSM
+CAMPUS_COORDINATES = (-12.0583, -77.0833)  # Ejemplo: coordenadas de UNMSM
 RADIUS_KM = 0.5
 
 # Rangos de hora
